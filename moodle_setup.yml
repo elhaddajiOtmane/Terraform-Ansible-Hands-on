@@ -1,0 +1,61 @@
+---
+- name: Setup Moodle Server
+  hosts: all
+  become: yes
+
+  vars:
+    moodle_local_path: "/path/to/local/moodle"
+    moodle_remote_path: "/var/www/html/moodle"
+
+  tasks:
+    - name: Update package repository
+      apt:
+        update_cache: yes
+
+    - name: Install Apache
+      apt:
+        name: apache2
+        state: present
+
+    - name: Install PHP 8.1
+      apt:
+        name: php8.1
+        state: present
+
+    - name: Install PHP MySQL extension
+      apt:
+        name: php8.1-mysql
+        state: present
+
+    - name: Enable PHP module for Apache
+      command: a2enmod php8.1
+
+    - name: Start Apache service
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Copy Moodle files to server
+      copy:
+        src: "{{ moodle_local_path }}"
+        dest: "{{ moodle_remote_path }}"
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Configure Apache to serve Moodle on port 8050
+      template:
+        src: moodle.conf.j2
+        dest: /etc/apache2/sites-available/moodle.conf
+      notify: Restart Apache
+
+    - name: Enable Moodle site configuration
+      command: a2ensite moodle.conf
+      notify: Restart Apache
+
+  handlers:
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
